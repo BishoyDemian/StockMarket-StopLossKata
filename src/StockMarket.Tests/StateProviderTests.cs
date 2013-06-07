@@ -33,6 +33,7 @@ namespace StockMarket.Trader.Tests
 
         [Test]
         [TestCase(0,0)]
+        [TestCase(short.MaxValue,0)]
         [TestCase(0,3)]
         [TestCase(0,4)]
         [TestCase(0,5)]
@@ -43,15 +44,15 @@ namespace StockMarket.Trader.Tests
         [TestCase(13343,0)]
         [TestCase(1234,15)]
         [TestCase(short.MaxValue,30)]
-        [TestCase(short.MaxValue,0)]
-        public void Should_calculate_state_and_reverse_to_price_and_time(short price, byte time)
+        [TestCase(short.MaxValue,short.MaxValue)]
+        public void Should_calculate_state_and_reverse_to_price_and_sell_point(short price, short sellPoint)
         {
             var stateProvider = Given_new_state_provider();
 
-            var state = stateProvider.CalculateState(price, time);
+            var state = stateProvider.CalculateState(price, sellPoint);
 
             Assert.That(stateProvider.GetPrice(state), Is.EqualTo(price));
-            Assert.That(stateProvider.GetSecondsSinceLastPrice(state), Is.EqualTo(time));
+            Assert.That(stateProvider.GetSellPoint(state), Is.EqualTo(sellPoint));
         }
 
     }

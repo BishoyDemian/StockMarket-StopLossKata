@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Threading.Tasks;
 using StockMarket.Trader.Mressages;
 using StockMarket.Trader.State;
-using StockMarket.Trader.Time;
 
 namespace StockMarket.Trader
 {
@@ -11,16 +11,14 @@ namespace StockMarket.Trader
      */
     public class StockTrader : IStockTrader
     {
-        private ITimeProvider _timeProvider;
-        private IStateProvider _stateProvider;
+        private readonly IStateProvider _stateProvider;
 
         private int _state;
 
         public event EventHandler SellNow;
 
-        public StockTrader(ITimeProvider timeProvider, IStateProvider stateProvider)
+        public StockTrader(IStateProvider stateProvider)
         {
-            _timeProvider = timeProvider;
             _stateProvider = stateProvider;
         }
 
@@ -29,28 +27,35 @@ namespace StockMarket.Trader
             if (newPosition == null)
                 throw new ArgumentNullException("newPosition");
             
-            if (newPosition.Price < 0)
-                throw new ArgumentException("Price must be >= 0 (zero)", "newPosition");
+            if (newPosition.Price <= 0)
+                throw new ArgumentException("Price must be > 0 (zero)", "newPosition");
 
-            _state = _stateProvider.CalculateState(newPosition.Price, 0);
+            _state = _stateProvider.CalculateState(newPosition.Price, newPosition.Price);
         }
 
-        public void UpdatePrice(PriceChanged newPrice)
+        public async void UpdatePriceAsync(PriceChanged newPrice)
         {
             if (newPrice == null)
                 throw new ArgumentNullException("newPrice");
 
-            if (newPrice.Price < 0)
-                throw new ArgumentException("Price must be >= 0 (zero)", "newPrice");
-
-            _state = _stateProvider.CalculateState(newPrice.Price, 0);
+            if (newPrice.Price <= 0)
+                throw new ArgumentException("Price must be > 0 (zero)", "newPrice");
 
             var currentPrice = GetCurrentPrice();
 
+            if (newPrice.Price == currentPrice)
+                return;
+
+            _state = _stateProvider.CalculateState(newPrice.Price, GetCurrentSellPoint());
+
             if (newPrice.Price > currentPrice)
-                _timeProvider.After(15, UpdateSellPoint, newPrice.Price);
+            {
+                await UpdateSellPoint(newPrice.Price);
+            }
             else if (newPrice.Price < currentPrice)
-                _timeProvider.After(30, StopLoss, newPrice.Price);
+            {
+                await StopLoss(newPrice.Price);
+            }
         }
 
         public short GetCurrentPrice()
@@ -58,19 +63,42 @@ namespace StockMarket.Trader
             return _stateProvider.GetPrice(_state);
         }
 
-        private void UpdateSellPoint(short priceWhenAskingForUpdate)
+        public short GetCurrentSellPoint()
         {
-            if (GetCurrentPrice() != priceWhenAskingForUpdate)
-                return;
+            return _stateProvider.GetSellPoint(_state);
         }
 
-        private void StopLoss(short priceWhenAskingForUpdate)
+        private async Task UpdateSellPoint(short newPrice)
         {
-            if (GetCurrentPrice() != priceWhenAskingForUpdate)
+            await Task.Delay(TimeSpan.FromSeconds(15));
+
+            var currentPrice = GetCurrentPrice();
+
+            if (currentPrice != newPrice)
                 return;
+
+            var sellPoint = Convert.ToInt16(Math.Floor(newPrice * 0.9));
+
+            _state = _stateProvider.CalculateState(currentPrice, sellPoint);
+        }
+
+        private async Task StopLoss(short newPrice)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+
+            var currentPrice = GetCurrentPrice();
+
+            // if price has changed while waiting...
+            // just abort current stop loss and another one will be invoked anyway
+            if (currentPrice != newPrice)
+                return;
+
+            var sellPoint = Convert.ToInt16(Math.Floor(newPrice * 0.9));
+            _state = _stateProvider.CalculateState(currentPrice, sellPoint);
 
             if (SellNow != null)
                 SellNow(this, EventArgs.Empty);
+
         }
     }
 }

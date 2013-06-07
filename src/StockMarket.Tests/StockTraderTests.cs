@@ -4,7 +4,6 @@ using FluentAssertions;
 using NUnit.Framework;
 using StockMarket.Trader.Mressages;
 using StockMarket.Trader.State;
-using StockMarket.Trader.Time;
 
 // ReSharper disable InconsistentNaming
 namespace StockMarket.Trader.Tests
@@ -13,15 +12,13 @@ namespace StockMarket.Trader.Tests
     public class StockTraderTests
     {
         private IStateProvider _stateProvider;
-        private ITimeProvider _timeProvider;
 
 
-        public IStockTrader Given_new_trader()
+        public StockTrader Given_new_trader()
         {
-            _timeProvider = new TimeProvider();
             _stateProvider = new StateProvider();
 
-            return new StockTrader(_timeProvider, _stateProvider);
+            return new StockTrader(_stateProvider);
         }
 
         [Test]
@@ -63,17 +60,40 @@ namespace StockMarket.Trader.Tests
         }
 
         [Test]
-        [TestCase(15)]
+        [TestCase(20)]
         [TestCase(30)]
-        public void Should_keep_track_of_time(byte time)
+        [TestCase(40)]
+        public void Should_not_update_sell_point_after_15_seconds_if_new_price_is_lower(short price)
         {
             var stockTrader = Given_new_trader();
 
-            stockTrader.AquirePosition(new PositionAcquired(100));
-            
-            Task.Delay(TimeSpan.FromSeconds(time)).Wait();
+            stockTrader.AquirePosition(new PositionAcquired(short.MaxValue));
 
-            Assert.That(stockTrader.GetTimeSinceLastPriceUpdate(), Is.EqualTo(time));
+            stockTrader.UpdatePriceAsync(new PriceChanged(price));
+
+            Task.Delay(TimeSpan.FromSeconds(15)).Wait();
+            Assert.That(stockTrader.GetCurrentSellPoint(), Is.EqualTo(short.MaxValue));
+        }
+
+        [Test]
+        // test cases should be greater than 10 in order to trigger the update_sell_point
+        [TestCase(20)]
+        [TestCase(30)]
+        [TestCase(40)]
+        public void Should_update_sell_point_after_15_seconds_if_new_price_is_higher(short price)
+        {
+            var stockTrader = Given_new_trader();
+
+            stockTrader.AquirePosition(new PositionAcquired(10));
+
+            stockTrader.UpdatePriceAsync(new PriceChanged(price));
+            
+            Task.Delay(TimeSpan.FromSeconds(14)).Wait();
+            Assert.That(stockTrader.GetCurrentSellPoint(), Is.EqualTo(10));
+
+            
+            Task.Delay(TimeSpan.FromSeconds(2)).Wait();
+            Assert.That(stockTrader.GetCurrentSellPoint(), Is.EqualTo(Convert.ToInt16(Math.Floor(price * 0.9))));
         }
     }
 }

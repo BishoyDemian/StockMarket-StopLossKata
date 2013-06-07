@@ -7,7 +7,7 @@ namespace StockMarket.Trader
     {
         void AquirePosition(PositionAcquired newPosition);
         
-        void UpdatePrice(PriceChanged newPrice);
+        void UpdatePriceAsync(PriceChanged newPrice);
 
         short GetCurrentPrice();
 

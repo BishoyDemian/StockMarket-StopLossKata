@@ -4,10 +4,10 @@ namespace StockMarket.Trader.State
 {
     public interface IStateProvider
     {
-        int CalculateState(short price, byte secondsSincePrice);
+        int CalculateState(short price, short sellPoint);
 
         short GetPrice(int state);
 
-        byte GetSecondsSinceLastPrice(int state);
+        short GetSellPoint(int state);
     }
 }
