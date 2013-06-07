@@ -90,10 +90,34 @@ namespace StockMarket.Trader.Tests
             
             Task.Delay(TimeSpan.FromSeconds(14)).Wait();
             Assert.That(stockTrader.GetCurrentSellPoint(), Is.EqualTo(10));
-
             
             Task.Delay(TimeSpan.FromSeconds(2)).Wait();
             Assert.That(stockTrader.GetCurrentSellPoint(), Is.EqualTo(Convert.ToInt16(Math.Floor(price * 0.9))));
+        }
+
+        [Test]
+        [TestCase(20)]
+        [TestCase(30)]
+        [TestCase(40)]
+        public void Should_stop_loss_after_30_seconds_if_new_price_is_lower(short price)
+        {
+            var stockTrader = Given_new_trader();
+            var hasLossStopped = false;
+
+            stockTrader.SellNow += (sender, args) =>
+                                   {
+                                       hasLossStopped = true;
+                                   };
+
+            stockTrader.AquirePosition(new PositionAcquired(short.MaxValue));
+
+            stockTrader.UpdatePriceAsync(new PriceChanged(price));
+            
+            Task.Delay(TimeSpan.FromSeconds(29)).Wait();
+            Assert.That(hasLossStopped, Is.False);
+            
+            Task.Delay(TimeSpan.FromSeconds(2)).Wait();
+            Assert.That(hasLossStopped, Is.True);
         }
     }
 }
