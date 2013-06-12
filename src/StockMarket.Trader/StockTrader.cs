@@ -74,7 +74,8 @@ namespace StockMarket.Trader
 
             var currentPrice = GetCurrentPrice();
 
-            if (currentPrice != newPrice)
+            // if price dropped, abort operation
+            if (currentPrice < newPrice)
                 return;
 
             var sellPoint = Convert.ToInt16(Math.Floor(newPrice * 0.9));
@@ -90,7 +91,7 @@ namespace StockMarket.Trader
 
             // if price has changed while waiting...
             // just abort current stop loss and another one will be invoked anyway
-            if (currentPrice != newPrice)
+            if (currentPrice > newPrice)
                 return;
 
             var sellPoint = Convert.ToInt16(Math.Floor(newPrice * 0.9));

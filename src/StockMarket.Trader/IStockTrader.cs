@@ -11,6 +11,8 @@ namespace StockMarket.Trader
 
         short GetCurrentPrice();
 
+        short GetCurrentSellPoint();
+
         event EventHandler SellNow;
     }
 }
